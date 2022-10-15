@@ -1,0 +1,2 @@
+# Raply
+Automatic rap generator
