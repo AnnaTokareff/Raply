@@ -1,0 +1,11 @@
+## N...Lyrics Pattern
+r'([n]\s[A-Z].*)(?<=\) Lyrics)'
+##Remove Weird Unnecessary Slashes
+pattern = re.compile(r'\,')
+subbed = pattern.sub('',str(test_corpus))
+##Extract Verses
+pattern = re.compile(r'\[Verse[^][]*][^[]*')
+subbed = pattern.findall(str(test_corpus))
+##Replace Pipeline if existed:
+pattern = re.compile(r'|')
+subbed = pattern.findall('\n',str(test_corpus))
