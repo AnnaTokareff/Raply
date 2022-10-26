@@ -4,7 +4,7 @@ with open('RAW CORPUS Genius.txt','r',encoding='utf8') as lyrics:
 ## N...Lyrics Pattern
 r'([n]\s[A-Z].*)(?<=\) Lyrics)'
 ##Remove Weird Unnecessary Slashes
-pattern = re.compile(r'\,')
+pattern = re.compile(r'\')
 subbed = pattern.sub('',str(test_corpus))
 ##Extract Verses
 pattern = re.compile(r'\[Verse[^][]*][^[]*')
