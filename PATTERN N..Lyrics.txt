@@ -1,3 +1,6 @@
+##Opening File
+with open('RAW CORPUS Genius.txt','r',encoding='utf8') as lyrics:
+    raply = lyrics.readlines()
 ## N...Lyrics Pattern
 r'([n]\s[A-Z].*)(?<=\) Lyrics)'
 ##Remove Weird Unnecessary Slashes
