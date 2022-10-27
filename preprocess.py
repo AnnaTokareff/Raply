@@ -3,6 +3,7 @@ import csv
 import pandas as pd
 import glob
 import os
+import re 
 
 header = ['rapper', 'song', 'year', 'lyrics']
 def extract_lyrics(filename):
@@ -29,4 +30,27 @@ def extract_all_lyrics():
     combined_csv = pd.concat([pd.read_csv(f+".csv") for f in all_filenames ])
     combined_csv.to_csv( "raw_corpus.csv", index=False, encoding='utf-8')
 
-extract_all_lyrics()
+def extract_verses_only(lyrics):
+    """ Extract all the verses parts of the lyrics while ignoring any other part """
+    lyrics = lyrics.replace("|", "\n")
+    verse_pattern = re.compile(r'\[Verse[^][]*][^[]*')
+    # extract verses blocks
+    all_verses = verse_pattern.findall(lyrics)
+    all_verses = "\n".join(all_verses)
+    # remove the "[Verse...]" boundaries
+    verse_no_boundaries = re.sub(r'\[Verse.*?\]', "\n", all_verses)
+    # Seperate each verse with exactly one break line
+    verse_no_boundaries = re.sub(r'\n{2,}', '\n\n', verse_no_boundaries).strip()
+    return verse_no_boundaries
+
+with open("raw_corpus.csv") as corpus:
+    csvreader = csv.reader(corpus)
+    header = next(csvreader)
+    with open("verse_only_corpus.csv", "w") as clean:
+        writer = csv.writer(clean)
+        writer.writerow(header)
+        for row in csvreader:
+            row[-1] = extract_verses_only(row[-1])
+            writer.writerow(row)
+
+#extract_all_lyrics()
