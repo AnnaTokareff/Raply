@@ -4,6 +4,8 @@ import pandas as pd
 import glob
 import os
 import re 
+import string 
+from langdetect import detect
 
 header = ['rapper', 'song', 'year', 'lyrics']
 def extract_lyrics(filename):
@@ -39,20 +41,41 @@ def extract_verses_only(lyrics):
     all_verses = "\n".join(all_verses)
     # remove the "[Verse...]" boundaries
     verse_no_boundaries = re.sub(r'\[Verse.*?\]', "\n", all_verses)
-    # Seperate each verse with exactly one break line
+    # seperate each verse with exactly one break line
     verse_no_boundaries = re.sub(r'\n{2,}', '\n\n', verse_no_boundaries).strip()
     no_weird_endings = re.compile(r'You might also like\d*Embed"')
     verse_no_boundaries = no_weird_endings.sub('',verse_no_boundaries)
+    verse_no_boundaries = re.sub(r'\s\s+' , ' ', verse_no_boundaries).strip() 
     return verse_no_boundaries
 
+def is_english_text(lyrics):
+    try:
+        language = detect(row[-1])
+        if language == 'en':
+            return True
+    except:
+        language = "error"
+    return False
+
+def count_sentences(lyric):
+    if not lyric:
+        return 0
+    lyric = lyric.split("\n")
+    return len(lyric)
+
+s=0
 with open("raw_corpus.csv") as corpus:
     csvreader = csv.reader(corpus)
     header = next(csvreader)
-    with open("verse_only_corpus.csv", "w") as clean:
+    with open("clean_corpus_eng_only.csv", "w") as clean:
         writer = csv.writer(clean)
         writer.writerow(header)
         for row in csvreader:
             row[-1] = extract_verses_only(row[-1])
-            writer.writerow(row)
-
-#extract_all_lyrics()
+            # ignore empty lyrics and songs with less than 3 lines
+            if count_sentences(row[-1]) < 3:
+                    continue
+            # check if language is english
+            if is_english_text(row[-1]):
+                writer.writerow(row)
+print(s)
