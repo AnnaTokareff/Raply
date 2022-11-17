@@ -26,7 +26,7 @@ tokenizer = GPT2Tokenizer.from_pretrained(model_name_or_path)
 model = GPT2LMHeadModel.from_pretrained(model_name_or_path, use_cache=False).to(DEVICE)
 
 
-corpus_path = '~/rap_corpus/gpt2_rap_nosl_f2.txt'
+corpus_path = './gpt2_rap_nosl_f2.txt'
 
 with open(corpus_path) as tr:
     lyrics = tr.read()
@@ -141,7 +141,7 @@ print("Rhyme density of generated text",np.mean(generated_rls))
 print("Rhyme density of test set text",np.mean(test_rls))
 
 model_dir = './'
-trainer.save_model(model_dir + 'gpt2_noslurs_2/model')
+trainer.save_model(model_dir + 'model/')
 
 input_ids = tokenizer.encode(text, return_tensors="pt").to(DEVICE)
 model.eval()
