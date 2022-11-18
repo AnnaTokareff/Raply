@@ -111,11 +111,11 @@ print(testset[0])
 # measure rhyme density on test set
 generated_rls = []
 test_rls = []
-for l in testset:
-    line, next_line = l[0], l[1]
-    input_ids = tokenizer.encode(line, return_tensors="pt").to(DEVICE)
-    model.eval()
-    with open("generated_text.txt", "w") as generated:
+with open("generated_text.txt", "w") as generated:
+    for l in testset:
+        line, next_line = l[0], l[1]
+        input_ids = tokenizer.encode(line, return_tensors="pt").to(DEVICE)
+        model.eval()
         with torch.no_grad():
             out = model.generate(input_ids, 
                                 do_sample=True,
