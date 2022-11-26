@@ -32,6 +32,7 @@ with open(corpus_path) as tr:
     lyrics = tr.read()
     lyrics = lyrics.split("<|endoftext|>")
 train, test = train_test_split(lyrics, test_size=0.01)
+#train, test = train[:15], test[:15]
 train, test = pd.DataFrame(train), pd.DataFrame(test)
 train_path = "./train_prp.csv"
 test_path = "./test_prp.csv"
@@ -141,7 +142,7 @@ print("Rhyme density of generated text",np.mean(generated_rls))
 print("Rhyme density of test set text",np.mean(test_rls))
 
 model_dir = './'
-trainer.save_model(model_dir + 'model/')
+trainer.save_model(model_dir + 'model-no-slurs/')
 
 input_ids = tokenizer.encode(text, return_tensors="pt").to(DEVICE)
 model.eval()
