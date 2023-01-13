@@ -12,12 +12,55 @@ from transformers import GPT2LMHeadModel, GPT2Tokenizer
 import torch
 from transformers import Trainer, TrainingArguments
 import torch
-from tqdm import tqdm
 from lyrics import Lyrics
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from transformers import TextDataset, DataCollatorForLanguageModeling
 import numpy as np
+import re
+import pandas as pd
+from tqdm import tqdm
+
+df_slurs = pd.read_csv("./slurs.csv", sep=";")
+slurs_severity = dict(zip(df_slurs.text, df_slurs.severity_rating))
+slurs_category = dict(zip(df_slurs.text, df_slurs.category_1))
+
+def parse_test_set(path):
+  test_set = list(pd.read_csv(path).iloc[:,0])
+  return [ t.strip().split("\n") for t in test_set]
+
+def compute_rhym_dens(text):
+    l = Lyrics(text=text, print_stats=False, 
+          language="english")
+    rl = l.get_avg_rhyme_length()
+    return rl
+
+def get_slurs_stats(line, type_append=""):
+  COUNT = "{}slurs_count".format(type_append)
+  RATIO = "{}slurs_ratio".format(type_append)
+  CATEGORIES ="{}categories".format(type_append)
+  line_stats = {
+      COUNT : 0,
+      RATIO : 0,
+      CATEGORIES.format(type_append) : {}
+  }
+  count = 0
+  categories_count = {}
+  tokenized_line = line.split(" ")
+
+  for token in tokenized_line:
+    if token in slurs_category:
+      line_stats[COUNT]+=1
+      if slurs_category[token] in categories_count:
+        categories_count[slurs_category[token]]+=1
+      else:
+        categories_count[slurs_category[token]]=1
+      count+=1
+
+  line_stats[RATIO] = count / len(tokenized_line)
+  line_stats[CATEGORIES] = categories_count
+  return line_stats
+
 
 DEVICE = torch.device("cuda:0")
 
@@ -26,12 +69,13 @@ tokenizer = GPT2Tokenizer.from_pretrained(model_name_or_path)
 model = GPT2LMHeadModel.from_pretrained(model_name_or_path, use_cache=False).to(DEVICE)
 
 
-corpus_path = '~/rap_corpus/gpt2_rap_nosl_f2.txt'
+corpus_path = './gpt2_rap_nosl_f2.txt'
 
 with open(corpus_path) as tr:
     lyrics = tr.read()
     lyrics = lyrics.split("<|endoftext|>")
 train, test = train_test_split(lyrics, test_size=0.01)
+#train, test = train[:15], test[:15]
 train, test = pd.DataFrame(train), pd.DataFrame(test)
 train_path = "./train_prp.csv"
 test_path = "./test_prp.csv"
@@ -67,7 +111,7 @@ trainer = Trainer(
     optimizers = (torch.optim.AdamW(model.parameters(),lr=1e-5),None)
 )
 
-trainer.train()
+#trainer.train()
 
 encodings = tokenizer("".join(list(test[0])), return_tensors="pt")
 
@@ -103,16 +147,27 @@ for begin_loc in tqdm(range(0, seq_len, stride)):
 ppl = torch.exp(torch.stack(nlls).sum() / end_loc)
 print("Perplexity", ppl)
 
+test_set = parse_test_set("./test_prp.csv")
 text = list(test[0])
 testset = [t.split("Next Line:") for t in text]
 print(testset[0])
 
-
 # measure rhyme density on test set
 generated_rls = []
 test_rls = []
-for l in testset:
+
+orig_line_stats = get_slurs_stats("", type_append="orig_l_")
+orig_nline_stats = get_slurs_stats("", type_append="orig_nl_")
+gen_nline_stats = get_slurs_stats("", type_append="gen_nl_")
+stats_header = ["line", "next_line", "generated_text", *orig_line_stats.keys(),
+      *orig_nline_stats.keys(), *gen_nline_stats.keys(), "rd_test", "rd_gen"]
+all_stats = []
+
+for l in tqdm(test_set):
     line, next_line = l[0], l[1]
+    line, next_line = line.replace("Line:", ""), next_line.replace("Next line:", "")
+    orig_line_stats = get_slurs_stats(line, type_append="orig_l_")
+    orig_nline_stats = get_slurs_stats(next_line, type_append="orig_nl_")
     input_ids = tokenizer.encode(line, return_tensors="pt").to(DEVICE)
     model.eval()
     with torch.no_grad():
@@ -124,39 +179,19 @@ for l in testset:
                             )
 
     generated_text = list(map(tokenizer.decode, out))[0]
-    l = Lyrics(text=generated_text, print_stats=False, 
-            language="english")
-    rl = l.get_avg_rhyme_length()
-    generated_rls.append(rl)
-    l = Lyrics(text=next_line, print_stats=False, 
-            language="english")
-    rl = l.get_avg_rhyme_length()
-    test_rls.append(rl)
-print(np.mean(generated_rls), np.mean(test_rls))
-# 0.6591951787184029 0.3025075757575757
+    generated_text =  re.sub(r'\s\s+' , ' ', generated_text).strip()
+    generated_text =  re.sub(r'\n\n+' , '\n', generated_text).strip()
+    gen_nline_stats = get_slurs_stats(generated_text, type_append="gen_nl_")
+    rl1 = compute_rhym_dens(line + "\n" + generated_text)
+    generated_rls.append(rl1)
+    rl2 = compute_rhym_dens(line + "\n" + next_line)
+    test_rls.append(rl2)
+    stats = [line, next_line, generated_text, *orig_line_stats.values(),
+      *orig_nline_stats.values(), *gen_nline_stats.values(), rl1, rl2]
+    all_stats.append(stats)
+    print(len(all_stats))
+  
+#print(np.mean(generated_rls), np.mean(test_rls))
 
-print("Rhyme density of generated text",np.mean(generated_rls))
-print("Rhyme density of test set text",np.mean(test_rls))
-
-model_dir = './'
-trainer.save_model(model_dir + 'gpt2_noslurs_2/model')
-
-input_ids = tokenizer.encode(text, return_tensors="pt").to(DEVICE)
-model.eval()
-with torch.no_grad():
-    out = model.generate(input_ids, 
-                        do_sample=True,
-                        temperature=1.4,
-                        top_k=50,
-                        max_length=50,
-                        )
-
-generated_text = list(map(tokenizer.decode, out))[0]
-print(generated_text)
-
-"""-------------------------------------------------------------------
-
-Rhyme density measurements
-"""
-
-#!sudo apt-get install espeak -y
+df = pd.DataFrame(all_stats, columns=stats_header)
+df.to_csv("/content/drive/MyDrive/raply/data/tests/full_no_slurs_test_summary22.csv")
