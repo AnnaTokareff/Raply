@@ -4,10 +4,9 @@ from retry import retry
 import logging
 import time
 logger = logging.basicConfig()
+import os
 
-TOKEN =  "pOL7qoeTlL-x-AcrexYQcfoONbSw4YwQBwIJ2bh0lAjljSnTZaNxIPGa5vbNJmjE"
-#pOL7qoeTlL-x-AcrexYQcfoONbSw4YwQBwIJ2bh0lAjljSnTZaNxIPGa5vbNJmjE
-#Kmu9g1nBxLLztk7cwlZtuLiRum6nAAM7mNqFxQTOQSssLFNrn_W4mkp42-QHfuhO
+TOKEN = os.environ['TOKEN']
 DELAY = 30
 RETRIES = 20
 
